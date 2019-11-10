@@ -3,16 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/mkideal/cli"
+	clix "github.com/mkideal/cli/ext"
 )
 
 type viewT struct {
 	cli.Helper
-	ConfigFile string `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
-	Follow     bool   `cli:"f,follow" usage:"follow log content"`
+	ConfigFile        string        `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
+	Follow            bool          `cli:"f,follow" usage:"follow log content"`
+	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
+	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
 }
 
 var viewCMD = &cli.Command{
@@ -32,6 +36,10 @@ var viewCMD = &cli.Command{
 			fmt.Println("You need to fill \"host\" and \"token\" in", getConfFile(argv.ConfigFile))
 			return nil
 		}
+		if argv.SincePointInTime.IsSet() && argv.SinceRelativeTime.Seconds() > 0 {
+			fmt.Println("Error! You can't set both -s and -t")
+			return nil
+		}
 		pullLogs(config, argv)
 		return nil
 	},
@@ -42,14 +50,20 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques.Token = config.Token
 	fetchLogsReques.Follow = argv.Follow
 	fetchLogsReques.LogType = 0
-	fetchLogsReques.Since = config.LastView
-	if config.LastView-3600 > time.Now().Unix() {
-		fetchLogsReques.Since = time.Now().Unix() - 3600
+	if argv.SincePointInTime.IsSet() {
+		fetchLogsReques.Since = argv.SincePointInTime.Unix()
+		fmt.Println(argv.SincePointInTime.Unix())
+	} else if argv.SinceRelativeTime.Seconds() > 0 {
+		fetchLogsReques.Since = config.LastView - int64(math.Abs(argv.SinceRelativeTime.Seconds()))
+	} else {
+		fetchLogsReques.Since = config.LastView
+		if config.LastView-3600 > time.Now().Unix() {
+			fetchLogsReques.Since = time.Now().Unix() - 3600
+		}
 	}
 
 	for ok := true; ok; ok = argv.Follow {
 		fetchLogsReques.Follow = argv.Follow
-		fetchLogsReques.Since = config.LastView
 		timeout := 0 * time.Second
 		if argv.Follow {
 			timeout = 5 * time.Minute
@@ -73,6 +87,7 @@ func pullLogs(config *Config, argv *viewT) {
 			config.LastView = response.Time
 			config.Save(getConfFile(argv.ConfigFile))
 			viewSyslogEntries(response, argv)
+			fetchLogsReques.Since = response.Time
 		} else {
 			return
 		}
@@ -90,7 +105,7 @@ func parseSyslogResponse(src string) (*FetchSysLogResponse, error) {
 
 func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT) {
 	for _, logEntry := range fetchlogResponse.Logs {
-		fmt.Printf("%s %s %s %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.Message)
+		fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
 	}
 }
 
