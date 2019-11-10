@@ -2,10 +2,11 @@ package main
 
 //FetchLogsRequest fetches logs from the server
 type FetchLogsRequest struct {
-	Token   string `json:"t"`
-	Since   int64  `json:"sin"`
-	LogType int    `json:"lt"`
-	Follow  bool   `json:"foll"`
+	Token          string   `json:"t"`
+	Since          int64    `json:"sin"`
+	LogType        int      `json:"lt"`
+	Follow         bool     `json:"foll"`
+	HostnameFilter []string `json:"hnf,omitempty"`
 }
 
 //FetchSysLogResponse response for fetchlog

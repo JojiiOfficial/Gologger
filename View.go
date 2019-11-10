@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ type viewT struct {
 	Follow            bool          `cli:"f,follow" usage:"follow log content"`
 	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
+	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\!)"`
 }
 
 var viewCMD = &cli.Command{
@@ -40,9 +42,49 @@ var viewCMD = &cli.Command{
 			fmt.Println("Error! You can't set both -s and -t")
 			return nil
 		}
+
+		InitFilter(&argv.HostnameFilter, true)
+
 		pullLogs(config, argv)
 		return nil
 	},
+}
+
+//InitFilter split parameter values
+func InitFilter(sl *[]string, checkNegation bool) {
+	if len(*sl) == 0 {
+		*sl = nil
+		return
+	}
+	var e []string
+	for _, hn := range *sl {
+		if strings.Contains(hn, ",") {
+			for _, hh := range strings.Split(hn, ",") {
+				if len(hh) == 0 {
+					continue
+				}
+				e = append(e, hh)
+			}
+		} else {
+			if len(hn) == 0 {
+				continue
+			}
+			e = append(e, hn)
+		}
+	}
+	*sl = e
+	if checkNegation {
+		for i, s := range *sl {
+			if i == 0 {
+				continue
+			}
+			if strings.HasPrefix(s, "!") {
+				fmt.Println("Error! If you want to negate the filter, use the first element!")
+				os.Exit(1)
+				return
+			}
+		}
+	}
 }
 
 func pullLogs(config *Config, argv *viewT) {
@@ -50,6 +92,7 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques.Token = config.Token
 	fetchLogsReques.Follow = argv.Follow
 	fetchLogsReques.LogType = 0
+	fetchLogsReques.HostnameFilter = argv.HostnameFilter
 	if argv.SincePointInTime.IsSet() {
 		fetchLogsReques.Since = argv.SincePointInTime.Unix()
 		fmt.Println(argv.SincePointInTime.Unix())
