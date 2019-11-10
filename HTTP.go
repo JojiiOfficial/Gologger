@@ -6,11 +6,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
-func request(url, file string, data []byte, ignoreCert bool) (string, error) {
+func request(url, file string, data []byte, ignoreCert bool, timeout time.Duration) (string, error) {
+	if timeout == 0*time.Second {
+		timeout = http.DefaultClient.Timeout
+	}
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: ignoreCert},
+		IdleConnTimeout: timeout,
 	}
 	client := &http.Client{Transport: tr}
 	var addFile string
@@ -34,5 +39,6 @@ func request(url, file string, data []byte, ignoreCert bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(d), nil
 }
