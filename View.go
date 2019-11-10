@@ -18,7 +18,7 @@ type viewT struct {
 	Follow            bool          `cli:"f,follow" usage:"follow log content"`
 	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
-	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\!)"`
+	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\! before the first element)"`
 }
 
 var viewCMD = &cli.Command{
