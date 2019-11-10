@@ -12,9 +12,10 @@ import (
 
 //Config config
 type Config struct {
-	LastView int64  `json:"lv"`
-	Host     string `json:"host"`
-	Token    string `json:"token"`
+	LastView   int64  `json:"lv"`
+	Host       string `json:"host"`
+	Token      string `json:"token"`
+	IgnoreCert bool   `json:"ignoreCert"`
 }
 
 func loadConfig(file string) (*Config, error) {
