@@ -106,7 +106,6 @@ func pullLogs(config *Config, argv *viewT) {
 	}
 
 	for ok := true; ok; ok = argv.Follow {
-		fetchLogsReques.Follow = argv.Follow
 		timeout := 0 * time.Second
 		if argv.Follow {
 			timeout = 5 * time.Minute
