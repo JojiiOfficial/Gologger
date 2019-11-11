@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -39,6 +41,10 @@ func request(url, file string, data []byte, ignoreCert bool, timeout time.Durati
 	if err != nil {
 		return "", err
 	}
-
+	_, err = io.Copy(ioutil.Discard, resp.Body)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	resp.Body.Close()
 	return string(d), nil
 }
