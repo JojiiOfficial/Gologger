@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/mkideal/cli"
 	clix "github.com/mkideal/cli/ext"
 )
@@ -20,6 +21,7 @@ type viewT struct {
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
 	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\! before the first element)"`
 	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
+	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
 }
 
 var viewCMD = &cli.Command{
@@ -27,6 +29,9 @@ var viewCMD = &cli.Command{
 	Fn: func(ctx *cli.Context) error {
 		argv := ctx.Argv().(*viewT)
 		config, err := checkConfig(argv.ConfigFile)
+		if argv.NoColor || os.Getenv("NO_COLOR") == "true" {
+			color.NoColor = true
+		}
 		if err != nil {
 			fmt.Println("Error creating config:", err.Error())
 			return nil
@@ -134,7 +139,7 @@ func pullLogs(config *Config, argv *viewT) {
 			}
 			config.LastView = response.Time
 			config.Save(getConfFile(argv.ConfigFile))
-			viewSyslogEntries(response, argv)
+			viewSyslogEntries(response, argv, !argv.Follow)
 			fetchLogsReques.Since = response.Time
 		} else {
 			return
@@ -151,7 +156,20 @@ func parseSyslogResponse(src string) (*FetchSysLogResponse, error) {
 	return &response, nil
 }
 
-func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT) {
+//GreenBold a green and bold font
+var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
+
+func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showTimes bool) {
+	if len(fetchlogResponse.Logs) == 0 {
+		return
+	}
+	if showTimes {
+		firstTime := fetchlogResponse.Logs[0].Date
+		lastTime := fetchlogResponse.Logs[len(fetchlogResponse.Logs)-1].Date
+
+		fmt.Println("----->>", GreenBold(parseTime(firstTime)), "------ to ------->>", GreenBold(parseTime(lastTime)))
+		fmt.Print("\n")
+	}
 	for _, logEntry := range fetchlogResponse.Logs {
 		fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
 	}
