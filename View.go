@@ -18,7 +18,7 @@ type viewT struct {
 	cli.Helper
 	ConfigFile        string        `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
 	Follow            bool          `cli:"f,follow" usage:"follow log content"`
-	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
+	SincePointInTime  string        `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
 	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
 	TagFilter         []string      `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
@@ -48,7 +48,7 @@ var viewCMD = &cli.Command{
 			fmt.Println("You need to fill \"host\" and \"token\" in", getConfFile(argv.ConfigFile))
 			return nil
 		}
-		if argv.SincePointInTime.IsSet() && argv.SinceRelativeTime.Seconds() > 0 {
+		if len(argv.SincePointInTime) > 0 && argv.SinceRelativeTime.Seconds() > 0 {
 			fmt.Println("Error! You can't set both -s and -t")
 			return nil
 		}
@@ -63,7 +63,7 @@ var viewCMD = &cli.Command{
 			return nil
 		}
 
-		if argv.All && (argv.SincePointInTime.IsSet() || argv.SinceRelativeTime.Seconds() > 0) {
+		if argv.All && (len(argv.SincePointInTime) > 0 || argv.SinceRelativeTime.Seconds() > 0) {
 			fmt.Println("You can't view everything and set a starttime at once")
 			return nil
 		}
@@ -122,6 +122,18 @@ func InitFilter(sl *[]string, checkNegation bool) {
 	}
 }
 
+//TimeIn time in location
+func TimeIn(t time.Time, name string) time.Time {
+	loc, err := time.LoadLocation(name)
+	if err == nil {
+		t = t.In(loc)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
 func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques := FetchLogsRequest{}
 	fetchLogsReques.Token = config.Token
@@ -133,9 +145,14 @@ func pullLogs(config *Config, argv *viewT) {
 	if argv.FilterOperator {
 		fetchLogsReques.FilterOperator = argv.FilterOperator
 	}
-	if argv.SincePointInTime.IsSet() {
-		fetchLogsReques.Since = argv.SincePointInTime.Unix()
-		fmt.Println(argv.SincePointInTime.Unix())
+	if len(argv.SincePointInTime) > 0 {
+		tim, err := time.ParseInLocation(time.Stamp, argv.SincePointInTime, time.Now().Location())
+		tim = tim.AddDate(time.Now().Year(), 0, 0)
+		if err != nil {
+			fmt.Println("Error parsing time: " + err.Error())
+			return
+		}
+		fetchLogsReques.Since = tim.Unix()
 	} else if argv.SinceRelativeTime.Seconds() > 0 {
 		fetchLogsReques.Since = time.Now().Unix() - int64(math.Abs(argv.SinceRelativeTime.Seconds()))
 	} else {
@@ -170,7 +187,7 @@ func pullLogs(config *Config, argv *viewT) {
 				return
 			}
 			if len(response.Logs) == 0 && !argv.Follow {
-				fmt.Println("No new log since", parseTime(config.LastView))
+				fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
 			} else {
 				viewSyslogEntries(response, argv, !argv.Follow)
 			}
