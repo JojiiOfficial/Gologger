@@ -19,6 +19,7 @@ type viewT struct {
 	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
 	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\! before the first element)"`
+	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 }
 
 var viewCMD = &cli.Command{
@@ -43,6 +44,10 @@ var viewCMD = &cli.Command{
 			return nil
 		}
 
+		if argv.Reverse && argv.Follow {
+			fmt.Println("You can't use -t and -r together")
+			return nil
+		}
 		InitFilter(&argv.HostnameFilter, true)
 
 		pullLogs(config, argv)
@@ -91,6 +96,7 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques := FetchLogsRequest{}
 	fetchLogsReques.Token = config.Token
 	fetchLogsReques.Follow = argv.Follow
+	fetchLogsReques.Reverse = argv.Reverse
 	fetchLogsReques.LogType = 0
 	fetchLogsReques.HostnameFilter = argv.HostnameFilter
 	if argv.SincePointInTime.IsSet() {
