@@ -19,7 +19,9 @@ type viewT struct {
 	Follow            bool          `cli:"f,follow" usage:"follow log content"`
 	SincePointInTime  clix.Time     `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
-	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from Specific hostname (negatable with \\! before the first element)"`
+	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
+	TagFilter         []string      `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
+	FilterOperator    bool          `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
 	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
 }
@@ -54,6 +56,7 @@ var viewCMD = &cli.Command{
 			return nil
 		}
 		InitFilter(&argv.HostnameFilter, true)
+		InitFilter(&argv.TagFilter, true)
 
 		pullLogs(config, argv)
 		return nil
@@ -104,11 +107,15 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques.Reverse = argv.Reverse
 	fetchLogsReques.LogType = 0
 	fetchLogsReques.HostnameFilter = argv.HostnameFilter
+	fetchLogsReques.TagFilter = argv.TagFilter
+	if argv.FilterOperator {
+		fetchLogsReques.FilterOperator = argv.FilterOperator
+	}
 	if argv.SincePointInTime.IsSet() {
 		fetchLogsReques.Since = argv.SincePointInTime.Unix()
 		fmt.Println(argv.SincePointInTime.Unix())
 	} else if argv.SinceRelativeTime.Seconds() > 0 {
-		fetchLogsReques.Since = config.LastView - int64(math.Abs(argv.SinceRelativeTime.Seconds()))
+		fetchLogsReques.Since = time.Now().Unix() - int64(math.Abs(argv.SinceRelativeTime.Seconds()))
 	} else {
 		fetchLogsReques.Since = config.LastView
 		if config.LastView-3600 > time.Now().Unix() {
@@ -137,10 +144,14 @@ func pullLogs(config *Config, argv *viewT) {
 				fmt.Println("Error fetching: " + err.Error())
 				return
 			}
+			if len(response.Logs) == 0 && !argv.Follow {
+				fmt.Println("No new log since", parseTime(config.LastView))
+			} else {
+				viewSyslogEntries(response, argv, !argv.Follow)
+			}
 			config.LastView = response.Time
-			config.Save(getConfFile(argv.ConfigFile))
-			viewSyslogEntries(response, argv, !argv.Follow)
 			fetchLogsReques.Since = response.Time
+			config.Save(getConfFile(argv.ConfigFile))
 		} else {
 			return
 		}
@@ -160,9 +171,6 @@ func parseSyslogResponse(src string) (*FetchSysLogResponse, error) {
 var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
 
 func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showTimes bool) {
-	if len(fetchlogResponse.Logs) == 0 {
-		return
-	}
 	if showTimes {
 		firstTime := fetchlogResponse.Logs[0].Date
 		lastTime := fetchlogResponse.Logs[len(fetchlogResponse.Logs)-1].Date
