@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -24,6 +25,7 @@ type viewT struct {
 	FilterOperator    bool          `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
 	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
+	All               bool          `cli:"a,all" usage:"shows everything from time 0"`
 }
 
 var viewCMD = &cli.Command{
@@ -55,6 +57,26 @@ var viewCMD = &cli.Command{
 			fmt.Println("You can't use -t and -r together")
 			return nil
 		}
+
+		if argv.All && argv.Follow {
+			fmt.Println("-a and -f are not supported together")
+			return nil
+		}
+
+		if argv.All && (argv.SincePointInTime.IsSet() || argv.SinceRelativeTime.Seconds() > 0) {
+			fmt.Println("You can't view everything and set a starttime at once")
+			return nil
+		}
+
+		reader := bufio.NewReader(os.Stdin)
+
+		if argv.All && len(argv.HostnameFilter) == 0 && len(argv.TagFilter) == 0 {
+			y, _ := confirmInput("You didn't set a filter. Do you really want to show everything [y/n]> ", reader)
+			if !y {
+				return nil
+			}
+		}
+
 		InitFilter(&argv.HostnameFilter, true)
 		InitFilter(&argv.TagFilter, true)
 
@@ -122,6 +144,9 @@ func pullLogs(config *Config, argv *viewT) {
 			fetchLogsReques.Since = time.Now().Unix() - 3600
 		}
 	}
+	if argv.All {
+		fetchLogsReques.Since = 0
+	}
 
 	for ok := true; ok; ok = argv.Follow {
 		timeout := 0 * time.Second
@@ -149,9 +174,13 @@ func pullLogs(config *Config, argv *viewT) {
 			} else {
 				viewSyslogEntries(response, argv, !argv.Follow)
 			}
-			config.LastView = response.Time
-			fetchLogsReques.Since = response.Time
-			config.Save(getConfFile(argv.ConfigFile))
+
+			//Don't save if everything was fetched
+			if !argv.All {
+				config.LastView = response.Time
+				fetchLogsReques.Since = response.Time
+				config.Save(getConfFile(argv.ConfigFile))
+			}
 		} else {
 			return
 		}
