@@ -22,6 +22,7 @@ type viewT struct {
 	SincePointInTime  string        `cli:"t,sincetime" usage:"View logs since a point in time"`
 	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
 	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
+	MessageFilter     []string      `cli:"M,message" usage:"View logs with specific keywords message (negatable with \\! before the first element)"`
 	TagFilter         []string      `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
 	FilterOperator    bool          `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
 	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
@@ -108,6 +109,7 @@ var viewCMD = &cli.Command{
 
 		InitFilter(&argv.HostnameFilter, true)
 		InitFilter(&argv.TagFilter, true)
+		InitFilter(&argv.MessageFilter, true)
 
 		pullLogs(config, argv)
 		return nil
@@ -169,8 +171,15 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques.Follow = argv.Follow
 	fetchLogsReques.Reverse = argv.Reverse
 	fetchLogsReques.LogType = 0
-	fetchLogsReques.HostnameFilter = argv.HostnameFilter
-	fetchLogsReques.TagFilter = argv.TagFilter
+	if len(argv.MessageFilter) > 0 {
+		fetchLogsReques.MessageFilter = argv.MessageFilter
+	}
+	if len(argv.HostnameFilter) > 0 {
+		fetchLogsReques.HostnameFilter = argv.HostnameFilter
+	}
+	if len(argv.TagFilter) > 0 {
+		fetchLogsReques.TagFilter = argv.TagFilter
+	}
 	if argv.NLogs > 0 {
 		fetchLogsReques.Limit = argv.NLogs
 	}
