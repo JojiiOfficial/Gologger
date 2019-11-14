@@ -60,7 +60,7 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 	}
 
 	if argv.All && (len(argv.SincePointInTime) > 0 || argv.SinceRelativeTime.Seconds() > 0) {
-		return errors.New("can't view everything and set a starttime at once")
+		return errors.New("can't view everything and set a starttime at once (-a and -s/-t)")
 	}
 	if argv.Reverse && argv.Follow {
 		return genInvalidCombinationErr("use", "r", "f")
@@ -69,9 +69,6 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 	nLogsSet := argv.NLogs > 0
 	if nLogsSet && argv.Follow {
 		return genInvalidCombinationErr("use", "f", "n")
-	}
-	if nLogsSet && argv.All {
-		return genInvalidCombinationErr("use", "a", "n")
 	}
 
 	return nil
@@ -100,7 +97,7 @@ var viewCMD = &cli.Command{
 
 		reader := bufio.NewReader(os.Stdin)
 
-		if argv.All && len(argv.HostnameFilter) == 0 && len(argv.TagFilter) == 0 {
+		if argv.All && len(argv.HostnameFilter) == 0 && len(argv.TagFilter) == 0 && len(argv.MessageFilter) == 0 && argv.NLogs == 0 {
 			y, _ := confirmInput("You didn't set a filter. Do you really want to show everything [y/n]> ", reader)
 			if !y {
 				return nil
