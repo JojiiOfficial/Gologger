@@ -171,6 +171,9 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques.LogType = 0
 	fetchLogsReques.HostnameFilter = argv.HostnameFilter
 	fetchLogsReques.TagFilter = argv.TagFilter
+	if argv.NLogs > 0 {
+		fetchLogsReques.Limit = argv.NLogs
+	}
 	if argv.FilterOperator {
 		fetchLogsReques.FilterOperator = argv.FilterOperator
 	}
