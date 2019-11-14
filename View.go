@@ -29,6 +29,7 @@ type viewT struct {
 	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
 	All               bool          `cli:"a,all" usage:"show everything from time 0"`
 	NLogs             int           `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
+	Yes               bool          `cli:"y,yes" usage:"Dotn't show confirm messages" dft:"false"`
 }
 
 func genInvalidCombinationErr(mod string, notCompatible ...string) error {
@@ -97,7 +98,7 @@ var viewCMD = &cli.Command{
 
 		reader := bufio.NewReader(os.Stdin)
 
-		if argv.All && len(argv.HostnameFilter) == 0 && len(argv.TagFilter) == 0 && len(argv.MessageFilter) == 0 && argv.NLogs == 0 {
+		if argv.All && len(argv.HostnameFilter) == 0 && len(argv.TagFilter) == 0 && len(argv.MessageFilter) == 0 && argv.NLogs == 0 && !argv.Yes {
 			y, _ := confirmInput("You didn't set a filter. Do you really want to show everything [y/n]> ", reader)
 			if !y {
 				return nil
