@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -25,7 +26,54 @@ type viewT struct {
 	FilterOperator    bool          `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
 	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
-	All               bool          `cli:"a,all" usage:"shows everything from time 0"`
+	All               bool          `cli:"a,all" usage:"show everything from time 0"`
+	NLogs             int           `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
+}
+
+func genInvalidCombinationErr(mod string, notCompatible ...string) error {
+	var e string
+	for _, s := range notCompatible {
+		if !strings.HasPrefix(s, "-") {
+			s = "-" + s
+		}
+		if len(e) > 0 {
+			e += " and " + s
+		} else {
+			e = s
+		}
+	}
+	return errors.New("can't " + mod + " " + e + " together")
+}
+
+func (argv *viewT) Validate(ctx *cli.Context) error {
+	if len(argv.SincePointInTime) > 0 && argv.SinceRelativeTime.Seconds() > 0 {
+		return genInvalidCombinationErr("set", "s", "t")
+	}
+
+	if argv.Reverse && argv.Follow {
+		return genInvalidCombinationErr("use", "s", "t")
+	}
+
+	if argv.All && argv.Follow {
+		return genInvalidCombinationErr("use", "f", "a")
+	}
+
+	if argv.All && (len(argv.SincePointInTime) > 0 || argv.SinceRelativeTime.Seconds() > 0) {
+		return errors.New("can't view everything and set a starttime at once")
+	}
+	if argv.Reverse && argv.Follow {
+		return genInvalidCombinationErr("use", "r", "f")
+	}
+
+	nLogsSet := argv.NLogs > 0
+	if nLogsSet && argv.Follow {
+		return genInvalidCombinationErr("use", "f", "n")
+	}
+	if nLogsSet && argv.All {
+		return genInvalidCombinationErr("use", "a", "n")
+	}
+
+	return nil
 }
 
 var viewCMD = &cli.Command{
@@ -46,25 +94,6 @@ var viewCMD = &cli.Command{
 		}
 		if len(strings.Trim(config.Host, " ")) < 1 || len(strings.Trim(config.Token, " ")) < 1 {
 			fmt.Println("You need to fill \"host\" and \"token\" in", getConfFile(argv.ConfigFile))
-			return nil
-		}
-		if len(argv.SincePointInTime) > 0 && argv.SinceRelativeTime.Seconds() > 0 {
-			fmt.Println("Error! You can't set both -s and -t")
-			return nil
-		}
-
-		if argv.Reverse && argv.Follow {
-			fmt.Println("You can't use -t and -r together")
-			return nil
-		}
-
-		if argv.All && argv.Follow {
-			fmt.Println("-a and -f are not supported together")
-			return nil
-		}
-
-		if argv.All && (len(argv.SincePointInTime) > 0 || argv.SinceRelativeTime.Seconds() > 0) {
-			fmt.Println("You can't view everything and set a starttime at once")
 			return nil
 		}
 
@@ -166,9 +195,9 @@ func pullLogs(config *Config, argv *viewT) {
 	}
 
 	for ok := true; ok; ok = argv.Follow {
-		timeout := 0 * time.Second
+		timeout := 5 * time.Second
 		if argv.Follow {
-			timeout = 5 * time.Minute
+			timeout = 2 * time.Minute
 		}
 		d, err := json.Marshal(fetchLogsReques)
 		if err != nil {
