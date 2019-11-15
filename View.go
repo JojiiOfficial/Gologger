@@ -29,6 +29,7 @@ type viewT struct {
 	Follow         bool     `cli:"f,follow" usage:"follow log content"`
 	Reverse        bool     `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 	NLogs          int      `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
+	Raw            bool     `cli:"raw" usage:"View logs raw (without counting, ect...)"`
 	Yes            bool     `cli:"y,yes" usage:"Dotn't show confirm messages" dft:"false"`
 	NoColor        bool     `cli:"no-color" usage:"Don't show colors"`
 }
@@ -339,10 +340,12 @@ func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showT
 		fmt.Print("\n")
 	}
 	for _, logEntry := range fetchlogResponse.Logs {
-		if logEntry.Count > 1 {
+		if logEntry.Count > 1 && !argv.Raw {
 			fmt.Printf("%s %s %s(%d) %s%s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message, Yellow("(", logEntry.Count, "x)"))
 		} else {
-			fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
+			for i := 0; i < logEntry.Count; i++ {
+				fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
+			}
 		}
 	}
 }
