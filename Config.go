@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -68,6 +69,11 @@ func checkConfig(file string) (config *Config, err error) {
 	createDirIfNotExist(getConfPath())
 	confFile := getConfFile(file)
 	if _, err := os.Stat(confFile); err != nil {
+		y, _ := confirmInput("Config \""+file+"\" doesn't exists. Do you want to create a new config[y/n/a]> ", bufio.NewReader(os.Stdin))
+		if !y {
+			os.Exit(0)
+			return nil, nil
+		}
 		_, err = os.Create(confFile)
 		if err != nil {
 			return nil, err

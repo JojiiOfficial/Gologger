@@ -165,7 +165,7 @@ var viewCMD = &cli.Command{
 			return nil
 		}
 		if err == nil && config == nil {
-			fmt.Println("Config created successfully: \"" + getConfFile(argv.ConfigFile) + "\". You neet to set \"host\" and \"token\"")
+			fmt.Println("Config created successfully: \"" + getConfFile(argv.ConfigFile) + "\". You need to set \"host\" and \"token\"")
 			return nil
 		}
 		if len(strings.Trim(config.Host, " ")) < 1 || len(strings.Trim(config.Token, " ")) < 1 {
