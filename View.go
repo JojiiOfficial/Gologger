@@ -306,7 +306,7 @@ func pullLogs(config *Config, argv *viewT) {
 			fetchLogsReques.Since = response.Time
 
 			//Don't save if everything was fetched or if following
-			if !argv.All && !argv.Follow {
+			if !argv.All {
 				config.LastView = response.Time
 				config.Save(getConfFile(argv.ConfigFile))
 			}
