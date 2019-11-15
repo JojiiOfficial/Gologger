@@ -327,6 +327,9 @@ func parseSyslogResponse(src string) (*FetchSysLogResponse, error) {
 //GreenBold a green and bold font
 var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
 
+//Yellow fg color
+var Yellow = color.New(color.FgHiBlue).SprintFunc()
+
 func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showTimes bool) {
 	if showTimes {
 		firstTime := fetchlogResponse.Logs[0].Date
@@ -336,7 +339,11 @@ func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showT
 		fmt.Print("\n")
 	}
 	for _, logEntry := range fetchlogResponse.Logs {
-		fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
+		if logEntry.Count > 1 {
+			fmt.Printf("%s %s %s(%d) %s%s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message, Yellow("(", logEntry.Count, "x)"))
+		} else {
+			fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
+		}
 	}
 }
 
