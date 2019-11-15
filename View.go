@@ -7,30 +7,34 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/mkideal/cli"
-	clix "github.com/mkideal/cli/ext"
 )
 
 type viewT struct {
 	cli.Helper
-	ConfigFile        string        `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
-	Follow            bool          `cli:"f,follow" usage:"follow log content"`
-	SincePointInTime  string        `cli:"t,sincetime" usage:"View logs since a point in time"`
-	SinceRelativeTime clix.Duration `cli:"s,since" usage:"View logs since some minutes ago"`
-	HostnameFilter    []string      `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
-	MessageFilter     []string      `cli:"M,message" usage:"View logs with specific keywords message (negatable with \\! before the first element)"`
-	TagFilter         []string      `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
-	FilterOperator    bool          `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
-	Reverse           bool          `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
-	NoColor           bool          `cli:"no-color" usage:"Don't show colors"`
-	All               bool          `cli:"a,all" usage:"show everything from time 0"`
-	NLogs             int           `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
-	Yes               bool          `cli:"y,yes" usage:"Dotn't show confirm messages" dft:"false"`
+	ConfigFile     string   `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
+	Follow         bool     `cli:"f,follow" usage:"follow log content"`
+	Since          string   `cli:"s,since" usage:"View logs since a point in time"`
+	HostnameFilter []string `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
+	MessageFilter  []string `cli:"M,message" usage:"View logs with specific keywords message (negatable with \\! before the first element)"`
+	TagFilter      []string `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
+	FilterOperator bool     `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
+	Reverse        bool     `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
+	NoColor        bool     `cli:"no-color" usage:"Don't show colors"`
+	All            bool     `cli:"a,all" usage:"show everything from time 0"`
+	NLogs          int      `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
+	Yes            bool     `cli:"y,yes" usage:"Dotn't show confirm messages" dft:"false"`
+	Until          string   `cli:"u,until" usage:"Show only logs until a secific time"`
 }
+
+var isDurRegex *regexp.Regexp
+var sinceTime, untilTime int64
 
 func genInvalidCombinationErr(mod string, notCompatible ...string) error {
 	var e string
@@ -48,10 +52,6 @@ func genInvalidCombinationErr(mod string, notCompatible ...string) error {
 }
 
 func (argv *viewT) Validate(ctx *cli.Context) error {
-	if len(argv.SincePointInTime) > 0 && argv.SinceRelativeTime.Seconds() > 0 {
-		return genInvalidCombinationErr("set", "s", "t")
-	}
-
 	if argv.Reverse && argv.Follow {
 		return genInvalidCombinationErr("use", "s", "t")
 	}
@@ -60,8 +60,8 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		return genInvalidCombinationErr("use", "f", "a")
 	}
 
-	if argv.All && (len(argv.SincePointInTime) > 0 || argv.SinceRelativeTime.Seconds() > 0) {
-		return errors.New("can't view everything and set a starttime at once (-a and -s/-t)")
+	if argv.All && len(argv.Since) > 0 {
+		return errors.New("can't view everything and set a starttime at once (-a and -s)")
 	}
 	if argv.Reverse && argv.Follow {
 		return genInvalidCombinationErr("use", "r", "f")
@@ -72,7 +72,83 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		return genInvalidCombinationErr("use", "f", "n")
 	}
 
+	if len(argv.Until) > 0 {
+		st, err := parseTimeParam(argv.Until)
+		if err != nil {
+			return err
+		}
+		untilTime = int64(st)
+	}
+
+	if len(argv.Since) > 0 {
+		st, err := parseTimeParam(argv.Since)
+		if err != nil {
+			return err
+		}
+		sinceTime = int64(st) - 1
+	}
+
 	return nil
+}
+
+func parseTimeParam(param string) (uint64, error) {
+	param = strings.ToLower(strings.Trim(param, " "))
+	if len(param) == 0 {
+		return 0, nil
+	}
+	if isDurRegex == nil {
+		isDurRegex, _ = regexp.Compile("(?i)[0-9]+(s|m|h|d|w)$")
+	}
+	if isDurRegex.MatchString(param) {
+		var factor uint64
+		var count uint64
+		var t string
+		timeFactorts := []uint64{1, 60, 60 * 60, 60 * 60 * 24, 60 * 60 * 24 * 7}
+		for i, e := range []string{"s", "m", "h", "d", "w"} {
+			if strings.HasSuffix(param, e) {
+				t = strings.ReplaceAll(param, e, "")
+				factor = timeFactorts[i]
+				var err error
+				count, err = strconv.ParseUint(t, 10, 64)
+				count = uint64(math.Abs(float64(count)))
+				if err != nil {
+					return 0, err
+				}
+				break
+			}
+		}
+
+		if count*factor > 18446744073709551615 {
+			return 0, errors.New("Overflows uint64")
+		}
+		return uint64(time.Now().Unix()) - count*factor, nil
+	}
+	timeFormats := []string{
+		time.Stamp,
+		time.ANSIC,
+		time.RFC822,
+		time.RFC822Z,
+		time.UnixDate,
+	}
+	var t time.Time
+	var err error
+	for _, ti := range timeFormats {
+		t, err = time.ParseInLocation(ti, param, time.Now().Location())
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return 0, err
+	}
+	if t.Year() == 0 {
+		t = t.AddDate(time.Now().Year(), 0, 0)
+	}
+	if time.Now().Sub(t) < 0 {
+		return 0, errors.New("Time must be in past")
+	}
+
+	return uint64(t.Unix()), nil
 }
 
 var viewCMD = &cli.Command{
@@ -184,16 +260,11 @@ func pullLogs(config *Config, argv *viewT) {
 	if argv.FilterOperator {
 		fetchLogsReques.FilterOperator = argv.FilterOperator
 	}
-	if len(argv.SincePointInTime) > 0 {
-		tim, err := time.ParseInLocation(time.Stamp, argv.SincePointInTime, time.Now().Location())
-		tim = tim.AddDate(time.Now().Year(), 0, 0)
-		if err != nil {
-			fmt.Println("Error parsing time: " + err.Error())
-			return
-		}
-		fetchLogsReques.Since = tim.Unix()
-	} else if argv.SinceRelativeTime.Seconds() > 0 {
-		fetchLogsReques.Since = time.Now().Unix() - int64(math.Abs(argv.SinceRelativeTime.Seconds()))
+	if untilTime > 0 {
+		fetchLogsReques.Until = untilTime
+	}
+	if sinceTime > 0 {
+		fetchLogsReques.Since = sinceTime
 	} else {
 		fetchLogsReques.Since = config.LastView
 		if config.LastView-3600 > time.Now().Unix() {
@@ -231,10 +302,11 @@ func pullLogs(config *Config, argv *viewT) {
 				viewSyslogEntries(response, argv, !argv.Follow)
 			}
 
-			//Don't save if everything was fetched
-			if !argv.All {
+			fetchLogsReques.Since = response.Time
+
+			//Don't save if everything was fetched or if following
+			if !argv.All && !argv.Follow {
 				config.LastView = response.Time
-				fetchLogsReques.Since = response.Time
 				config.Save(getConfFile(argv.ConfigFile))
 			}
 		} else {
