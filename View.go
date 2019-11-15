@@ -19,18 +19,18 @@ import (
 type viewT struct {
 	cli.Helper
 	ConfigFile     string   `cli:"C,config" usage:"Specify the config file" dft:"config.json"`
-	Follow         bool     `cli:"f,follow" usage:"follow log content"`
-	Since          string   `cli:"s,since" usage:"View logs since a point in time"`
 	HostnameFilter []string `cli:"H,hostname" usage:"View logs from specific hostname (negatable with \\! before the first element)"`
 	MessageFilter  []string `cli:"M,message" usage:"View logs with specific keywords message (negatable with \\! before the first element)"`
 	TagFilter      []string `cli:"T,Tag" usage:"View logs from a specific tag (negatable with \\! before the first element)"`
-	FilterOperator bool     `cli:"O,Or" usage:"Specify if only one of your filter must match to get an entry (or) dft: 'and'" dft:"false"`
-	Reverse        bool     `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
-	NoColor        bool     `cli:"no-color" usage:"Don't show colors"`
+	Since          string   `cli:"s,since" usage:"View logs since a point in time"`
+	Until          string   `cli:"u,until" usage:"Show only logs until a secific time"`
 	All            bool     `cli:"a,all" usage:"show everything from time 0"`
+	FilterOperator bool     `cli:"o,or" usage:"Specify if only one of your filter must match to get an entry 'or' dft: candc" dft:"false"`
+	Follow         bool     `cli:"f,follow" usage:"follow log content"`
+	Reverse        bool     `cli:"r,reverse" usage:"View in reversed order" dft:"false"`
 	NLogs          int      `cli:"n,nums" usage:"Show last n logs (or n logs from -s or -t)"`
 	Yes            bool     `cli:"y,yes" usage:"Dotn't show confirm messages" dft:"false"`
-	Until          string   `cli:"u,until" usage:"Show only logs until a secific time"`
+	NoColor        bool     `cli:"no-color" usage:"Don't show colors"`
 }
 
 var isDurRegex *regexp.Regexp
