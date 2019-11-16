@@ -286,7 +286,7 @@ func pullLogs(config *Config, argv *viewT) {
 			fmt.Println("Error creating json: " + err.Error())
 			return
 		}
-		res, err := request(config.Host, "fetch", d, config.IgnoreCert, timeout)
+		res, err := request(config.Host, "glog/fetch", d, config.IgnoreCert, timeout)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
