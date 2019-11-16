@@ -303,7 +303,7 @@ func pullLogs(config *Config, argv *viewT) {
 				fmt.Println("Error fetching: " + err.Error())
 				return
 			}
-			if len(response.SysLogs) == 0 && !argv.Follow {
+			if len(response.SysLogs) == 0 && len(response.CustomLogs) == 0 && !argv.Follow {
 				fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
 			} else {
 				viewLogEntries(response, argv, !argv.Follow)
