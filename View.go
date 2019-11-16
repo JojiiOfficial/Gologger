@@ -37,6 +37,12 @@ type viewT struct {
 var isDurRegex *regexp.Regexp
 var sinceTime, untilTime int64
 
+//GreenBold a green and bold font
+var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
+
+//Yellow fg color
+var Yellow = color.New(color.FgHiBlue).SprintFunc()
+
 func genInvalidCombinationErr(mod string, notCompatible ...string) error {
 	var e string
 	for _, s := range notCompatible {
@@ -292,15 +298,15 @@ func pullLogs(config *Config, argv *viewT) {
 			return
 		}
 		if fetchLogsReques.LogType == 0 {
-			response, err := parseSyslogResponse(res)
+			response, err := parseFetchLogsResponse(res)
 			if err != nil {
 				fmt.Println("Error fetching: " + err.Error())
 				return
 			}
-			if len(response.Logs) == 0 && !argv.Follow {
+			if len(response.SysLogs) == 0 && !argv.Follow {
 				fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
 			} else {
-				viewSyslogEntries(response, argv, !argv.Follow)
+				viewLogEntries(response, argv, !argv.Follow)
 			}
 
 			fetchLogsReques.Since = response.Time
@@ -316,40 +322,22 @@ func pullLogs(config *Config, argv *viewT) {
 	}
 }
 
-func parseSyslogResponse(src string) (*FetchSysLogResponse, error) {
-	response := FetchSysLogResponse{}
-	err := json.Unmarshal([]byte(src), &response)
-	if err != nil {
-		return nil, err
-	}
-	return &response, nil
-}
-
-//GreenBold a green and bold font
-var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
-
-//Yellow fg color
-var Yellow = color.New(color.FgHiBlue).SprintFunc()
-
-func viewSyslogEntries(fetchlogResponse *FetchSysLogResponse, argv *viewT, showTimes bool) {
-	if showTimes {
-		firstTime := fetchlogResponse.Logs[0].Date
-		lastTime := fetchlogResponse.Logs[len(fetchlogResponse.Logs)-1].Date
+func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime bool) {
+	entries := mergeLogs(fetchlogResponse.SysLogs, fetchlogResponse.CustomLogs)
+	if showTime {
+		firstTime := entries[0].Date
+		lastTime := entries[len(entries)-1].Date
 
 		fmt.Println("----->>", GreenBold(parseTime(firstTime)), "------ to ------->>", GreenBold(parseTime(lastTime)))
 		fmt.Print("\n")
 	}
-	for _, logEntry := range fetchlogResponse.Logs {
-		if logEntry.Count > 1 && !argv.Raw {
-			fmt.Printf("%s %s %s(%d) %s%s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message, Yellow("(", logEntry.Count, "x)"))
+	for _, entry := range entries {
+		if entry.Count > 1 && !argv.Raw {
+			fmt.Printf("%s %s %s %s%s\n", parseTime(entry.Date), entry.Hostname, entry.Tag, entry.Message, Yellow("(", entry.Count, "x)"))
 		} else {
-			for i := 0; i < logEntry.Count; i++ {
-				fmt.Printf("%s %s %s(%d) %s\n", parseTime(logEntry.Date), logEntry.Hostname, logEntry.Tag, logEntry.PID, logEntry.Message)
+			for i := 0; i < entry.Count; i++ {
+				fmt.Printf("%s %s %s %s\n", parseTime(entry.Date), entry.Hostname, entry.Tag, entry.Message)
 			}
 		}
 	}
-}
-
-func parseTime(unix int64) string {
-	return time.Unix(unix, 0).Format(time.Stamp)
 }
