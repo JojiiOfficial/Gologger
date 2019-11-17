@@ -17,6 +17,8 @@ type Config struct {
 	Host       string `json:"host"`
 	Token      string `json:"token"`
 	IgnoreCert bool   `json:"ignoreCert"`
+	LastStart  int64  `json:"ls"`
+	LastEnd    int64  `json:"le"`
 }
 
 func loadConfig(file string) (*Config, error) {

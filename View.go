@@ -184,12 +184,12 @@ var viewCMD = &cli.Command{
 	Fn: func(ctx *cli.Context) error {
 		argv := ctx.Argv().(*viewT)
 		config, err := checkConfig(argv.ConfigFile)
-		if argv.NoColor || os.Getenv("NO_COLOR") == "true" {
-			color.NoColor = true
-		}
 		if err != nil {
 			fmt.Println("Error creating config:", err.Error())
 			return nil
+		}
+		if argv.NoColor || os.Getenv("NO_COLOR") == "true" {
+			color.NoColor = true
 		}
 		if err == nil && config == nil {
 			fmt.Println("Config created successfully: \"" + getConfFile(argv.ConfigFile) + "\". You need to set \"host\" and \"token\"")
@@ -213,7 +213,7 @@ var viewCMD = &cli.Command{
 		InitFilter(&argv.TagFilter, true)
 		InitFilter(&argv.MessageFilter, true)
 
-		pullLogs(config, argv)
+		pullLogs(config, argv, sinceTime, untilTime, true)
 		return nil
 	},
 }
@@ -267,7 +267,7 @@ func TimeIn(t time.Time, name string) time.Time {
 	return t
 }
 
-func pullLogs(config *Config, argv *viewT) {
+func pullLogs(config *Config, argv *viewT, since, until int64, saveTimes bool) {
 	fetchLogsReques := FetchLogsRequest{}
 	fetchLogsReques.Token = config.Token
 	fetchLogsReques.Follow = argv.Follow
@@ -287,11 +287,11 @@ func pullLogs(config *Config, argv *viewT) {
 	if argv.FilterOperator {
 		fetchLogsReques.FilterOperator = argv.FilterOperator
 	}
-	if untilTime > 0 {
-		fetchLogsReques.Until = untilTime
+	if until > 0 {
+		fetchLogsReques.Until = until
 	}
-	if sinceTime > 0 {
-		fetchLogsReques.Since = sinceTime
+	if since > 0 {
+		fetchLogsReques.Since = since
 	} else {
 		fetchLogsReques.Since = config.LastView
 		if config.LastView-3600 > time.Now().Unix() {
@@ -326,13 +326,13 @@ func pullLogs(config *Config, argv *viewT) {
 			if len(response.SysLogs) == 0 && len(response.CustomLogs) == 0 && !argv.Follow {
 				fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
 			} else {
-				viewLogEntries(response, argv, !argv.Follow)
+				viewLogEntries(response, argv, !argv.Follow, saveTimes, config)
 			}
 
 			fetchLogsReques.Since = response.Time
 
 			//Don't save if a filter was used
-			if !argv.All && len(argv.Until) == 0 {
+			if !argv.All || len(argv.Until) == 0 {
 				config.LastView = response.Time
 				config.Save(getConfFile(argv.ConfigFile))
 			}
@@ -342,11 +342,11 @@ func pullLogs(config *Config, argv *viewT) {
 	}
 }
 
-func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime bool) {
+func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime, saveTimes bool, config *Config) {
 	entries := mergeLogs(fetchlogResponse.SysLogs, fetchlogResponse.CustomLogs, argv.Reverse)
+	firstTime := entries[0].Date
+	lastTime := entries[len(entries)-1].Date
 	if showTime {
-		firstTime := entries[0].Date
-		lastTime := entries[len(entries)-1].Date
 
 		fmt.Println("----->>", GreenBold(parseTime(firstTime)), "------ to ------->>", GreenBold(parseTime(lastTime)))
 		fmt.Print("\n")
@@ -359,5 +359,10 @@ func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime bo
 				fmt.Printf("%s %s %s %s\n", parseTime(entry.Date), entry.Hostname, entry.Tag, entry.Message)
 			}
 		}
+	}
+	if saveTimes && len(entries) > 0 && !argv.Follow && !argv.All {
+		config.LastStart = firstTime - 1
+		config.LastEnd = lastTime + 1
+		config.Save(getConfFile(argv.ConfigFile))
 	}
 }
