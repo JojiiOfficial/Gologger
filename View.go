@@ -332,7 +332,7 @@ func pullLogs(config *Config, argv *viewT, since, until int64, saveTimes bool) {
 			fetchLogsReques.Since = response.Time
 
 			//Don't save if a filter was used
-			if !argv.All || len(argv.Until) == 0 {
+			if !argv.All && len(argv.Until) == 0 && saveTimes {
 				config.LastView = response.Time
 				config.Save(getConfFile(argv.ConfigFile))
 			}
