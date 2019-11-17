@@ -29,7 +29,6 @@ var viewLastCMD = &cli.Command{
 		if config.LastStart == config.LastEnd || (config.LastStart == 0 && config.LastEnd == 0) {
 			return errors.New("No history")
 		}
-		fmt.Println(parseTime(config.LastStart), parseTime(config.LastEnd))
 		pullLogs(config, argv, config.LastStart, config.LastEnd, false)
 		return nil
 	},
