@@ -20,7 +20,7 @@ func parseTime(unix int64) string {
 	return time.Unix(unix, 0).Format(time.Stamp)
 }
 
-func mergeLogs(syslogs []SyslogEntry, customLogs []CustomLogEntry) []MergedLog {
+func mergeLogs(syslogs []SyslogEntry, customLogs []CustomLogEntry, reverse bool) []MergedLog {
 	var merged []MergedLog
 	for _, log := range syslogs {
 		merged = append(merged, syslogToMerged(log))
@@ -29,6 +29,9 @@ func mergeLogs(syslogs []SyslogEntry, customLogs []CustomLogEntry) []MergedLog {
 		merged = append(merged, custlogToMerged(log))
 	}
 	sort.Slice(merged, func(p, q int) bool {
+		if reverse {
+			return merged[p].Date > merged[q].Date
+		}
 		return merged[p].Date < merged[q].Date
 	})
 	return merged

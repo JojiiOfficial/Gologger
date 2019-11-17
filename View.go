@@ -250,7 +250,6 @@ func pullLogs(config *Config, argv *viewT) {
 	fetchLogsReques := FetchLogsRequest{}
 	fetchLogsReques.Token = config.Token
 	fetchLogsReques.Follow = argv.Follow
-	fetchLogsReques.Reverse = argv.Reverse
 	fetchLogsReques.LogType = 0
 	if len(argv.MessageFilter) > 0 {
 		fetchLogsReques.MessageFilter = argv.MessageFilter
@@ -323,7 +322,7 @@ func pullLogs(config *Config, argv *viewT) {
 }
 
 func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime bool) {
-	entries := mergeLogs(fetchlogResponse.SysLogs, fetchlogResponse.CustomLogs)
+	entries := mergeLogs(fetchlogResponse.SysLogs, fetchlogResponse.CustomLogs, argv.Reverse)
 	if showTime {
 		firstTime := entries[0].Date
 		lastTime := entries[len(entries)-1].Date
