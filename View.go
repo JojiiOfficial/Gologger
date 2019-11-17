@@ -36,6 +36,7 @@ type viewT struct {
 
 var isDurRegex *regexp.Regexp
 var sinceTime, untilTime int64
+var isFilterUsed bool
 
 //GreenBold a green and bold font
 var GreenBold = color.New(color.Bold, color.FgHiGreen).SprintFunc()
@@ -95,7 +96,27 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		sinceTime = int64(st) - 1
 	}
 
+	isFilterUsed = isArrSet(argv.HostnameFilter, argv.MessageFilter, argv.TagFilter) || isStrSet(argv.Until) || argv.All
+
 	return nil
+}
+
+func isStrSet(args ...string) bool {
+	for _, f := range args {
+		if len(f) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func isArrSet(args ...[]string) bool {
+	for _, f := range args {
+		if len(f) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func parseTimeParam(param string) (uint64, error) {
@@ -310,8 +331,8 @@ func pullLogs(config *Config, argv *viewT) {
 
 			fetchLogsReques.Since = response.Time
 
-			//Don't save if everything was fetched or if following
-			if !argv.All {
+			//Don't save if a filter was used
+			if !argv.All && len(argv.Until) == 0 {
 				config.LastView = response.Time
 				config.Save(getConfFile(argv.ConfigFile))
 			}
