@@ -343,7 +343,13 @@ func pullLogs(config *Config, argv *viewT, since, until int64, saveTimes bool) {
 }
 
 func viewLogEntries(fetchlogResponse *FetchLogResponse, argv *viewT, showTime, saveTimes bool, config *Config) {
+	if len(fetchlogResponse.SysLogs) == 0 && len(fetchlogResponse.CustomLogs) == 0 {
+		return
+	}
 	entries := mergeLogs(fetchlogResponse.SysLogs, fetchlogResponse.CustomLogs, argv.Reverse)
+	if len(entries) == 0 {
+		return
+	}
 	firstTime := entries[0].Date
 	lastTime := entries[len(entries)-1].Date
 	if showTime {
