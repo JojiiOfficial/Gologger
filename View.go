@@ -85,7 +85,7 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		untilTime = int64(st)
+		untilTime = st
 	}
 
 	if len(argv.Since) > 0 {
@@ -93,7 +93,7 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		sinceTime = int64(st) - 1
+		sinceTime = st - 1
 	}
 
 	isFilterUsed = isArrSet(argv.HostnameFilter, argv.MessageFilter, argv.TagFilter) || isStrSet(argv.Until) || argv.All
@@ -119,7 +119,7 @@ func isArrSet(args ...[]string) bool {
 	return false
 }
 
-func parseTimeParam(param string) (uint64, error) {
+func parseTimeParam(param string) (int64, error) {
 	param = strings.ToLower(strings.Trim(param, " "))
 	if len(param) == 0 {
 		return 0, nil
@@ -146,10 +146,10 @@ func parseTimeParam(param string) (uint64, error) {
 			}
 		}
 
-		if count*factor > 18446744073709551615 {
-			return 0, errors.New("Overflows uint64")
+		if count*factor > 2147483647 {
+			return 0, errors.New("Overflows int64")
 		}
-		return uint64(time.Now().Unix()) - count*factor, nil
+		return time.Now().Unix() - int64(count*factor), nil
 	}
 	timeFormats := []string{
 		time.Stamp,
@@ -176,7 +176,7 @@ func parseTimeParam(param string) (uint64, error) {
 		return 0, errors.New("Time must be in past")
 	}
 
-	return uint64(t.Unix()), nil
+	return t.Unix(), nil
 }
 
 var viewCMD = &cli.Command{

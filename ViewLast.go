@@ -29,7 +29,18 @@ var viewLastCMD = &cli.Command{
 		if config.LastStart == config.LastEnd || (config.LastStart == 0 && config.LastEnd == 0) {
 			return errors.New("No history")
 		}
-		pullLogs(config, argv, config.LastStart, config.LastEnd, false)
+		start := config.LastStart
+		end := config.LastEnd
+		if len(argv.Until) > 0 {
+			end, err = parseTimeParam(argv.Until)
+		}
+		if len(argv.Since) > 0 {
+			start, err = parseTimeParam(argv.Since)
+		}
+		if err != nil {
+			fmt.Println("Error parsing time: " + err.Error())
+		}
+		pullLogs(config, argv, start, end, false)
 		return nil
 	},
 }
