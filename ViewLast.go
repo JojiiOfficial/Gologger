@@ -9,8 +9,6 @@ import (
 	"github.com/mkideal/cli"
 )
 
-//fmt.Println("\n" + os.Args[0] + " -s \"" + parseTime(config.LastStart) + "\" -u \"" + parseTime(config.LastEnd) + "\"")
-
 var viewLastCMD = &cli.Command{
 	Name:    "viewlast",
 	Aliases: []string{"vl", "last", "viewlastcommand"},

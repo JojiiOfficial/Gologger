@@ -96,7 +96,7 @@ func (argv *viewT) Validate(ctx *cli.Context) error {
 		sinceTime = st - 1
 	}
 
-	isFilterUsed = isArrSet(argv.HostnameFilter, argv.MessageFilter, argv.TagFilter) || isStrSet(argv.Until) || argv.All
+	isFilterUsed = isArrSet(argv.HostnameFilter, argv.MessageFilter, argv.TagFilter) || argv.All
 
 	return nil
 }
@@ -324,7 +324,11 @@ func pullLogs(config *Config, argv *viewT, since, until int64, saveTimes bool) {
 				return
 			}
 			if len(response.SysLogs) == 0 && len(response.CustomLogs) == 0 && !argv.Follow {
-				fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
+				if isFilterUsed {
+					fmt.Println("No log available for this filter")
+				} else {
+					fmt.Println("No new log since", parseTime(fetchLogsReques.Since))
+				}
 			} else {
 				viewLogEntries(response, argv, !argv.Follow, saveTimes, config)
 			}
